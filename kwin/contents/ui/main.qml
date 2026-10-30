@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQml.Models
 import org.kde.kwin
 import org.kde.plasma.core as PlasmaCore
 import "../code/geometry.js" as Geometry
@@ -7,6 +8,7 @@ Item {
     id: root
     property var state: ({})
     property var originals: ({})
+    property var trackedWindows: []
     property var movingWindow: null
     property var startGeometry: null
     property string dragProfile: ""
@@ -75,21 +77,29 @@ Item {
         overlay.x=area.x;overlay.y=area.y;overlay.width=area.width;overlay.height=area.height;
         overlay.visible=activeZones.length>0;
     }
-    function connectWindow(w) {
-        if (!w.normalWindow) return;
-        w.interactiveMoveResizeStarted.connect(function() {
-            if (!w.move || !w.resizeable || w.fullScreen) return;
-            movingWindow=w;startGeometry=Geometry.copy(w.frameGeometry);dragProfile=state.profile_key || "";suppressed=false;refresh();updateOverlay();
-        });
-        w.interactiveMoveResizeFinished.connect(function() {
-            if (movingWindow!==w) return;
-            updateOverlay();
-            // Escape restores the original geometry; do not snap a cancelled move.
-            const shouldSnap=overlay.visible && highlighted>=0 && !Geometry.same(w.frameGeometry,startGeometry);
-            const zone=activeZones[highlighted],target=output,original=startGeometry;
-            movingWindow=null;overlay.visible=false;highlighted=-1;
-            if (shouldSnap) place(w,zone,target,original);
-        });
+    function beginMove(w) {
+        if (!w.move || !w.resizeable || w.fullScreen) return;
+        root.movingWindow=w;root.startGeometry=Geometry.copy(w.frameGeometry);
+        root.dragProfile=root.state.profile_key || "";root.suppressed=false;
+        root.refresh();root.updateOverlay();
+    }
+    function finishMove(w) {
+        if (root.movingWindow!==w) return;
+        root.updateOverlay();
+        // Escape restores the original geometry; do not snap a cancelled move.
+        const shouldSnap=overlay.visible && root.highlighted>=0 && !Geometry.same(w.frameGeometry,root.startGeometry);
+        const zone=root.activeZones[root.highlighted],target=root.output,original=root.startGeometry;
+        root.movingWindow=null;overlay.visible=false;root.highlighted=-1;
+        if (shouldSnap) root.place(w,zone,target,original);
+    }
+    Instantiator {
+        model: root.trackedWindows
+        delegate: WindowDragConnection {
+            required property var modelData
+            window: modelData
+            onDragStarted: function(w) { root.beginMove(w) }
+            onDragFinished: function(w) { root.finishMove(w) }
+        }
     }
     DBusCall {
         id: statusCall
@@ -105,10 +115,13 @@ Item {
     Timer {interval:30;running:root.movingWindow!==null;repeat:true;onTriggered:root.updateOverlay()}
     Connections {
         target: Workspace
-        function onWindowAdded(w) {root.connectWindow(w)}
-        function onWindowRemoved(w) {delete root.originals[String(w.internalId)];if(root.movingWindow===w){root.movingWindow=null;overlay.visible=false}}
+        function onWindowAdded(w) {root.trackedWindows=root.trackedWindows.concat([w])}
+        function onWindowRemoved(w) {
+            root.trackedWindows=root.trackedWindows.filter(function(item){return item!==w});
+            delete root.originals[String(w.internalId)];if(root.movingWindow===w){root.movingWindow=null;overlay.visible=false}
+        }
     }
-    Component.onCompleted: {const ws=Workspace.stackingOrder;for(let i=0;i<ws.length;i++)connectWindow(ws[i])}
+    Component.onCompleted: root.trackedWindows=Array.from(Workspace.stackingOrder)
     Repeater {
         model:9
         delegate: Item {

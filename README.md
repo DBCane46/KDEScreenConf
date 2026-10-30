@@ -69,7 +69,7 @@ systemctl --user status kdescreenconf
 ```
 cargo test --offline
 node tests/kwin.test.cjs
-QT_QPA_PLATFORM=offscreen /usr/lib/qt6/bin/qmltestrunner -input tests/tst_editor.qml
+QT_QPA_PLATFORM=offscreen /usr/lib/qt6/bin/qmltestrunner -input tests
 cargo build --release --offline
 /usr/lib/qt6/bin/qmllint widget/contents/ui/main.qml
 ```

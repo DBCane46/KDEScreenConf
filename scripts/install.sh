@@ -30,15 +30,16 @@ cp -R widget/. "$HOME/.local/share/plasma/plasmoids/org.kde.kdescreenconf/"
 cp -R kwin/. "$HOME/.local/share/kwin/scripts/kdescreenconf/"
 # KWin caches QML across reloads; include all QML/JS in the entry URL's digest.
 python3 - <<'PYINSTALL'
-import hashlib,json,pathlib
+import hashlib,json,pathlib,shutil
 source=pathlib.Path("kwin/contents")
 dest=pathlib.Path.home()/".local/share/kwin/scripts/kdescreenconf"
 digest=hashlib.sha256()
 for p in sorted(source.rglob("*")):
     if p.is_file():digest.update(p.relative_to(source).as_posix().encode());digest.update(p.read_bytes())
-name="main-"+digest.hexdigest()[:12]+".qml"
-(dest/"contents/ui"/name).write_bytes((source/"ui/main.qml").read_bytes())
-meta=json.loads((dest/"metadata.json").read_text());meta["X-Plasma-MainScript"]="ui/"+name
+version=digest.hexdigest()[:12]
+version_dir=dest/"contents/versions"/version
+shutil.copytree(source,version_dir,dirs_exist_ok=True)
+meta=json.loads((dest/"metadata.json").read_text());meta["X-Plasma-MainScript"]="versions/"+version+"/ui/main.qml"
 (dest/"metadata.json").write_text(json.dumps(meta,indent=2)+"\n")
 PYINSTALL
 cat > "$HOME/.config/systemd/user/kdescreenconf.service" <<'SERVICE'
@@ -63,7 +64,9 @@ systemctl --user enable kdescreenconf.service
 systemctl --user restart kdescreenconf.service
 qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.unloadScript kdescreenconf || true
 kwriteconfig6 --file kwinrc --group Plugins --key kdescreenconfEnabled true
-qdbus6 org.kde.KWin /KWin reconfigure
+entry=$(python3 -c 'import json,pathlib; p=pathlib.Path.home()/".local/share/kwin/scripts/kdescreenconf"; print(p/"contents"/json.loads((p/"metadata.json").read_text())["X-Plasma-MainScript"])')
+qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.loadDeclarativeScript "$entry" kdescreenconf
+qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.start
 # Replace an existing Kadr panel/desktop widget, without adding one on fresh installs.
 qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '
 var cs = panels().concat(desktops());
