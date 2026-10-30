@@ -9,6 +9,17 @@ Item {
     property var state: ({})
     property var originals: ({})
     property var trackedWindows: []
+    property var helperScreens: []
+    property bool helperExpanded: false
+    property var helperGeometry: Geometry.helperBox(area)
+    function updateHelperScreens() {
+        const screens=Workspace.screens,result=[];
+        for(let i=0;i<screens.length;i++){
+            const a=Workspace.clientArea(KWin.MaximizeArea,screens[i],Workspace.currentDesktop);
+            result.push({name:screens[i].name,x:a.x,y:a.y,width:a.width,height:a.height});
+        }
+        if(JSON.stringify(result)!==JSON.stringify(helperScreens))helperScreens=result;
+    }
     property var movingWindow: null
     property var startGeometry: null
     property string dragProfile: ""
@@ -64,7 +75,7 @@ Item {
         w.setMaximize(false,false);w.frameGeometry=Qt.rect(r.x,r.y,r.width,r.height);delete originals[key];
     }
     function updateOverlay() {
-        if (!movingWindow || suppressed || !healthy() || !state.drag_overlay || state.profile_key!==dragProfile) { overlay.visible=false;highlighted=-1;return }
+        if (!movingWindow || suppressed || !healthy() || (!state.drag_overlay && !state.placement_helper) || state.profile_key!==dragProfile) { overlay.visible=false;highlighted=-1;return }
         const cursor=Workspace.cursorPos;
         const screens=Workspace.screens;
         let found=null;
@@ -73,9 +84,10 @@ Item {
         output=found;
         area=Workspace.clientArea(KWin.MaximizeArea,found,Workspace.currentDesktop);
         activeZones=state.zones[found.name] || [];
-        highlighted=Geometry.hit(activeZones,(cursor.x-area.x)/area.width,(cursor.y-area.y)/area.height);
+        helperExpanded=state.placement_helper && Geometry.inside(cursor.x,cursor.y,helperGeometry);
+        highlighted=helperExpanded ? Geometry.helperHit(activeZones,cursor.x,cursor.y,area) : (state.drag_overlay?Geometry.hit(activeZones,(cursor.x-area.x)/area.width,(cursor.y-area.y)/area.height):-1);
         overlay.x=area.x;overlay.y=area.y;overlay.width=area.width;overlay.height=area.height;
-        overlay.visible=activeZones.length>0;
+        overlay.visible=activeZones.length>0 && (state.drag_overlay || helperExpanded);
     }
     function beginMove(w) {
         if (!w.move || !w.resizeable || w.fullScreen) return;
@@ -107,7 +119,7 @@ Item {
         onFinished: function(reply) {
             root.busy=false;
             try { root.state=JSON.parse(reply[0]);root.lastReply=Date.now() } catch(e) {root.state=({})}
-            root.updateOverlay();root.updateIdentification();
+            root.updateOverlay();root.updateIdentification();root.updateHelperScreens();
         }
         onFailed: {root.busy=false;root.state=({});root.updateOverlay();root.updateIdentification()}
     }
@@ -132,6 +144,22 @@ Item {
     }
     ShortcutHandler {name:"KDEScreenConfRestore";text:"KDEScreenConf: restore window geometry";sequence:"Meta+Ctrl+0";onActivated:root.restore()}
     ShortcutHandler {name:"KDEScreenConfSkipDrag";text:"KDEScreenConf: skip snapping for this drag";sequence:"Meta+Ctrl+D";onActivated:{root.suppressed=true;root.updateOverlay()}}
+    Instantiator {
+        model: root.helperScreens
+        delegate: PlasmaCore.Dialog {
+            id: handle
+            required property var modelData
+            title: "KDEScreenConf placement helper · "+modelData.name
+            location: PlasmaCore.Types.Floating
+            type: PlasmaCore.Dialog.OnScreenDisplay
+            backgroundHints: PlasmaCore.Types.NoBackground
+            flags: Qt.FramelessWindowHint | Qt.WindowDoesNotAcceptFocus | Qt.WindowTransparentForInput | Qt.BypassWindowManagerHint
+            outputOnly:true
+            x:modelData.x+(modelData.width-200)/2;y:modelData.y+8
+            visible:root.healthy() && root.state.placement_helper===true && !(overlay.visible && root.output && root.output.name===modelData.name)
+            mainItem: PlacementStrip {width:200;height:24;screenName:handle.modelData.name}
+        }
+    }
     PlasmaCore.Dialog {
         id: identification
         title: "KDEScreenConf screen identification"
@@ -172,12 +200,20 @@ Item {
                     id: zoneItem
                     required property var modelData
                     required property int index
+                    visible:root.state.drag_overlay || root.highlighted===index
                     x:modelData[0]*root.area.width+8;y:modelData[1]*root.area.height+8
                     width:Math.max(1,modelData[2]*root.area.width-16);height:Math.max(1,modelData[3]*root.area.height-16)
                     radius:12;color:root.highlighted===index ? "#8044b9ee" : "#243daee9"
                     border.width:root.highlighted===index?3:1;border.color:root.highlighted===index?"#a9e3ff":"#803daee9"
                     Text {anchors.centerIn:parent;text:String(zoneItem.index+1);color:"white";font.pixelSize:38;style:Text.Outline;styleColor:"#263747"}
                 }
+            }
+            PlacementStrip {
+                visible:root.state.placement_helper===true
+                x:root.helperExpanded?root.helperGeometry.x-root.area.x:(root.area.width-200)/2
+                y:8;width:root.helperExpanded?root.helperGeometry.width:200;height:root.helperExpanded?root.helperGeometry.height:24
+                expanded:root.helperExpanded;zones:root.activeZones;highlighted:root.highlighted
+                screenName:root.output?root.output.name:""
             }
         }
     }

@@ -28,7 +28,7 @@ PlasmoidItem {
                 if(source===root.pendingSave){root.pendingSave="";if(root.editorItem){root.editorItem.saving=false;root.editorItem.error=root.failure}}
                 return
             }
-            try { const next = JSON.parse(data.stdout); if (JSON.stringify(next) !== JSON.stringify(root.snapshot)) root.snapshot = next; root.failure = next.error || "" }
+            try { const next = JSON.parse(data.stdout); if (JSON.stringify(next) !== JSON.stringify(root.snapshot)) root.snapshot = next; root.failure = next.error || next.layout_warning || "" }
             catch (e) { root.failure = "Could not read KDEScreenConf status" }
             if(source===root.pendingSave){root.pendingSave="";if(root.editorItem)root.editorItem.saving=false;root.editing=false}
         }
@@ -54,6 +54,7 @@ PlasmoidItem {
         Kirigami.Heading { level: 3; text: root.snapshot.profile ? root.snapshot.profile.name : "Detecting screens…" }
         QQC2.Label { text: root.failure; visible: text.length > 0; wrapMode: Text.Wrap; Layout.fillWidth: true }
         QQC2.CheckBox { visible:!root.editing; text:"Show zones while dragging windows";checked:root.snapshot.drag_overlay===true;onClicked:root.run(checked?"overlay-on":"overlay-off") }
+        QQC2.CheckBox {visible:!root.editing;text:"Placement helper at the top of each screen";checked:root.snapshot.placement_helper===true;onClicked:root.run(checked?"helper-on":"helper-off")}
         LayoutEditor {
             id: layoutEditor
             Component.onCompleted: root.editorItem = this

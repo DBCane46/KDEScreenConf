@@ -32,6 +32,8 @@ struct Config {
     automatic: bool,
     #[serde(default = "enabled")]
     drag_overlay: bool,
+    #[serde(default = "enabled")]
+    placement_helper: bool,
     profiles: BTreeMap<String, Profile>,
 }
 fn enabled() -> bool {
@@ -43,6 +45,7 @@ impl Default for Config {
             version: 1,
             automatic: true,
             drag_overlay: true,
+            placement_helper: true,
             profiles: BTreeMap::new(),
         }
     }
@@ -114,6 +117,15 @@ fn validate_zones(zones: &[[f64; 4]]) -> Result<(), String> {
             return Err(
                 "Zones must stay inside the screen and be at least 5% wide and high".into(),
             );
+        }
+    }
+    for (i, a) in zones.iter().enumerate() {
+        for (j, b) in zones.iter().enumerate().skip(i + 1) {
+            let width = (a[0] + a[2]).min(b[0] + b[2]) - a[0].max(b[0]);
+            let height = (a[1] + a[3]).min(b[1] + b[3]) - a[1].max(b[1]);
+            if width > 1e-9 && height > 1e-9 {
+                return Err(format!("Zones {} and {} overlap", i + 1, j + 1));
+            }
         }
     }
     Ok(())
@@ -215,7 +227,12 @@ impl State {
             return vec![];
         };
         match p.layouts.get(identity).map(String::as_str) {
-            Some("custom") => p.custom.get(identity).cloned().unwrap_or_default(),
+            Some("custom") => p
+                .custom
+                .get(identity)
+                .filter(|z| validate_zones(z).is_ok())
+                .cloned()
+                .unwrap_or_else(|| zones("halves").unwrap()),
             Some(l) => zones(l).unwrap_or_default(),
             _ => vec![],
         }
@@ -226,7 +243,10 @@ impl State {
             .iter()
             .map(|m| (m.name.clone(), self.resolved(&m.identity)))
             .collect();
-        json!({"identify":self.identify.as_ref().filter(|(_,until)|Instant::now()<*until).map(|(name,_)|name),"automatic":self.config.automatic,"drag_overlay":self.config.drag_overlay,"profile_key":self.key,"profile":self.config.profiles.get(&self.key),"zones":resolved,"monitors":self.monitors,"error":self.error,"profiles":self.config.profiles.values().map(|p|&p.name).collect::<Vec<_>>()}).to_string()
+        let warnings: Vec<_>=self.monitors.iter().filter(|m| {
+            self.config.profiles.get(&self.key).is_some_and(|p|p.layouts.get(&m.identity).is_some_and(|l|l=="custom") && p.custom.get(&m.identity).is_none_or(|z|validate_zones(z).is_err()))
+        }).map(|m|format!("{}: saved custom layout is invalid. Using two columns until you edit it; original zones are retained.",m.name)).collect();
+        json!({"layout_warning":warnings.join("\n"),"placement_helper":self.config.placement_helper,"identify":self.identify.as_ref().filter(|(_,until)|Instant::now()<*until).map(|(name,_)|name),"automatic":self.config.automatic,"drag_overlay":self.config.drag_overlay,"profile_key":self.key,"profile":self.config.profiles.get(&self.key),"zones":resolved,"monitors":self.monitors,"error":self.error,"profiles":self.config.profiles.values().map(|p|&p.name).collect::<Vec<_>>()}).to_string()
     }
 }
 struct Service(Arc<Mutex<State>>);
@@ -269,6 +289,10 @@ impl Service {
             return Err(zbus::fdo::Error::InvalidArgs(
                 "Create a custom layout first".into(),
             ));
+        }
+        if layout == "custom" {
+            validate_zones(&c.profiles[&s.key].custom[&id])
+                .map_err(zbus::fdo::Error::InvalidArgs)?;
         }
         c.profiles
             .get_mut(&s.key)
@@ -319,6 +343,14 @@ impl Service {
         s.config = c;
         Ok(())
     }
+    fn set_placement_helper(&self, enabled: bool) -> zbus::fdo::Result<()> {
+        let mut s = self.0.lock().unwrap();
+        let mut c = s.config.clone();
+        c.placement_helper = enabled;
+        save(&s.path, &c).map_err(zbus::fdo::Error::Failed)?;
+        s.config = c;
+        Ok(())
+    }
     fn identify(&self, screen: &str) -> zbus::fdo::Result<()> {
         let mut s = self.0.lock().unwrap();
         if !s.monitors.iter().any(|m| m.name == screen) {
@@ -363,6 +395,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "overlay-on" | "overlay-off" => {
                 p.call::<_, _, ()>("SetDragOverlay", &(cmd == "overlay-on"))?;
+                println!("{}", p.call::<_, _, String>("Status", &())?);
+            }
+            "helper-on" | "helper-off" => {
+                p.call::<_, _, ()>("SetPlacementHelper", &(cmd == "helper-on"))?;
                 println!("{}", p.call::<_, _, String>("Status", &())?);
             }
             "identify" => {
@@ -456,10 +492,14 @@ mod tests {
         ] {
             assert!(validate_zones(&[z]).is_err());
         }
-        assert!(validate_zones(&[[0., 0., 1., 1.], [0.25, 0.25, 0.5, 0.5]]).is_ok());
+        assert!(validate_zones(&[[0., 0., 1., 1.], [0.25, 0.25, 0.5, 0.5]]).is_err());
         let old: Config =
             serde_json::from_str(r#"{"version":1,"automatic":true,"profiles":{}}"#).unwrap();
         assert!(old.drag_overlay);
+        assert!(old.placement_helper);
+        assert!(validate_zones(&[[0., 0., 0.5, 1.], [0.5, 0., 0.5, 1.]]).is_ok());
+        assert!(validate_zones(&[[0., 0., 0.5, 0.5], [0.5, 0.5, 0.5, 0.5]]).is_ok());
+        assert!(validate_zones(&[[0., 0., 0.6, 1.], [0.5, 0., 0.5, 1.]]).is_err());
     }
     #[test]
     fn custom_save_rejects_stale_profile_and_survives_restart() {
@@ -508,6 +548,24 @@ mod tests {
                 .len(),
             2
         );
+        {
+            let mut s = shared.lock().unwrap();
+            s.config.profiles.get_mut(&key).unwrap().custom.insert(
+                "laptop".into(),
+                vec![[0., 0., 1., 1.], [0.25, 0.25, 0.5, 0.5]],
+            );
+        }
+        assert_eq!(
+            serde_json::from_str::<Vec<[f64; 4]>>(&service.layout("laptop")).unwrap(),
+            zones("halves").unwrap()
+        );
+        assert!(
+            !serde_json::from_str::<Value>(&service.status()).unwrap()["layout_warning"]
+                .as_str()
+                .unwrap()
+                .is_empty()
+        );
+        assert!(service.set_layout("laptop", "custom").is_err());
         service.set_automatic(false).unwrap();
         assert_eq!(service.layout("laptop"), "[]");
         fs::remove_dir_all(path.parent().unwrap()).unwrap();

@@ -17,3 +17,14 @@ function clamp(g,a) {
     var w=Math.min(g.width,a.width),h=Math.min(g.height,a.height);
     return {x:Math.max(a.x,Math.min(g.x,a.x+a.width-w)),y:Math.max(a.y,Math.min(g.y,a.y+a.height-h)),width:w,height:h};
 }
+function helperBox(area) {
+    var w=Math.min(360,Math.max(120,area.width-24)),h=Math.min(160,area.height-24);
+    return {x:area.x+(area.width-w)/2,y:area.y+8,width:w,height:h};
+}
+function inside(x,y,r) {return x>=r.x&&y>=r.y&&x<r.x+r.width&&y<r.y+r.height;}
+function helperHit(zones,x,y,area) {
+    var b=helperBox(area);
+    var preview={x:b.x+16,y:b.y+34,width:b.width-32,height:b.height-46};
+    if(!inside(x,y,preview))return -1;
+    return hit(zones,(x-preview.x)/preview.width,(y-preview.y)/preview.height);
+}

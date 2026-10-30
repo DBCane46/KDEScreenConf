@@ -18,8 +18,35 @@ ColumnLayout {
     function load(screen, profile, value, ratio) {
         screenName=screen;profileKey=profile;zones=JSON.parse(JSON.stringify(value));aspect=ratio;selected=0;error="";saving=false;
     }
-    function change(index, z) { const copy=zones.slice();copy[index]=z;zones=copy }
-    function add() { if(zones.length>=9)return;zones=zones.concat([[0.25,0.25,0.5,0.5]]);selected=zones.length-1 }
+    function overlap(a,b) {
+        return Math.min(a[0]+a[2],b[0]+b[2])-Math.max(a[0],b[0])>1e-9 && Math.min(a[1]+a[3],b[1]+b[3])-Math.max(a[1],b[1])>1e-9;
+    }
+    function valid(values) {
+        if(!values.length||values.length>9)return false;
+        for(let i=0;i<values.length;i++) {
+            const z=values[i];
+            if(z.some(function(n){return !isFinite(n)})||z[0]<0||z[1]<0||z[2]<0.05||z[3]<0.05||z[0]+z[2]>1.000001||z[1]+z[3]>1.000001)return false;
+            for(let j=i+1;j<values.length;j++)if(overlap(z,values[j]))return false;
+        }
+        return true;
+    }
+    function change(index, z) {
+        const copy=zones.slice();copy[index]=z;
+        if(!valid(copy)){error="Zones must stay inside the screen and cannot overlap.";zones=zones.slice();return false}
+        error="";zones=copy;return true;
+    }
+    function add() {
+        if(zones.length>=9)return;
+        const index=selected>=0?selected:0,z=zones[index];
+        if(!z)return;
+        const horizontal=z[2]>=0.1 && (z[2]*aspect>=z[3] || z[3]<0.1);
+        if(!horizontal && z[3]<0.1){error="This zone is too small to split.";return}
+        const a=z.slice(),b=z.slice();
+        if(horizontal){a[2]=z[2]/2;b[0]+=a[2];b[2]=a[2]}
+        else {a[3]=z[3]/2;b[1]+=a[3];b[3]=a[3]}
+        const copy=zones.slice();copy[index]=a;copy.push(b);
+        if(valid(copy)){zones=copy;selected=copy.length-1;error=""}
+    }
     function remove() { if(zones.length<=1||selected<0)return;const copy=zones.slice();copy.splice(selected,1);zones=copy;selected=Math.min(selected,zones.length-1) }
     function setPercent(field, value) {
         if(selected<0||selected>=zones.length)return;
@@ -32,7 +59,7 @@ ColumnLayout {
         Kirigami.Heading {level:3;text:"Edit zones · "+editor.screenName;Layout.fillWidth:true}
         C.Button {text:"Identify screen";onClicked:editor.identifyRequested(editor.screenName)}
     }
-    C.Label {text:"Drag zones to move them. Drag the lower-right corner to resize.\nOverlaps are allowed; the last zone takes priority.";wrapMode:Text.Wrap;Layout.fillWidth:true}
+    C.Label {text:"Drag zones to move them. Drag the lower-right corner to resize.\nZones cannot overlap. Add zone splits the selected zone.";wrapMode:Text.Wrap;Layout.fillWidth:true}
     Rectangle {
         id: canvas
         objectName: "zoneCanvas"
@@ -112,7 +139,7 @@ ColumnLayout {
     }
     C.Label {text:editor.error;visible:text.length>0;wrapMode:Text.Wrap;Layout.fillWidth:true;color:Kirigami.Theme.negativeTextColor}
     RowLayout {
-        C.Button {text:editor.saving?"Saving…":"Save layout";enabled:!editor.saving;onClicked:{editor.saving=true;editor.error="";editor.saveRequested(editor.screenName,editor.profileKey,JSON.stringify(editor.zones))}}
+        C.Button {text:editor.saving?"Saving…":"Save layout";enabled:!editor.saving && editor.valid(editor.zones);onClicked:{editor.saving=true;editor.error="";editor.saveRequested(editor.screenName,editor.profileKey,JSON.stringify(editor.zones))}}
         C.Button {text:"Cancel";enabled:!editor.saving;onClicked:editor.cancelled()}
     }
 }

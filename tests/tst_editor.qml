@@ -9,6 +9,19 @@ Item {
         function init(){editor.load("Test screen","profile",[[0,0,0.5,1],[0.5,0,0.5,1]],16/9)}
         function test_preview(){wait(50);grabImage(editor).save("/tmp/kdescreenconf-editor-preview.png")}
         function test_add_delete(){editor.add();compare(editor.zones.length,3);editor.remove();compare(editor.zones.length,2)}
+        function test_no_overlap(){
+            const before=JSON.stringify(editor.zones);
+            verify(!editor.change(0,[0.1,0,0.5,1]));compare(JSON.stringify(editor.zones),before);
+            verify(!editor.change(0,[0,0,0.75,1]));compare(JSON.stringify(editor.zones),before);
+            verify(editor.change(0,[0,0,0.5,1]));verify(editor.valid(editor.zones));
+            editor.add();verify(editor.valid(editor.zones));
+            for(let i=0;i<6;i++){editor.add();verify(editor.valid(editor.zones))}
+        }
+        function test_mouse_collision(){
+            const canvas=findChild(editor,"zoneCanvas");
+            mouseDrag(canvas,canvas.width*.25,canvas.height*.25,100,0,Qt.LeftButton);
+            verify(editor.valid(editor.zones));compare(editor.zones[0][0],0);
+        }
         function test_bounds(){editor.setPercent(0,95);verify(editor.zones[0][0]+editor.zones[0][2]<=1.000001);editor.setPercent(2,100);verify(editor.zones[0][0]+editor.zones[0][2]<=1.000001)}
         function test_drag_resize(){
             const canvas=findChild(editor,"zoneCanvas");verify(canvas!==null);

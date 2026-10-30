@@ -4,7 +4,7 @@
     "Name": "KDEScreenConf",
     "Description": "Automatic monitor profiles and window zones",
     "Icon": "kdescreenconf",
-    "Version": "0.3.1",
+    "Version": "0.4.0",
     "License": "MIT",
     "Authors": [
       {
