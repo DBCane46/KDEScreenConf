@@ -12,8 +12,8 @@ PlasmoidItem {
     property string pendingSave: ""
     property var editorItem: null
     property string failure: "Connecting to KDEScreenConf…"
-    property var layoutIds: ["full", "halves", "thirds", "priority", "quarters", "custom"]
-    property var layoutNames: ["Full screen", "Two columns", "Three columns", "Wide centre", "Four quarters", "Custom"]
+    property var layoutIds: ["full", "halves", "thirds", "priority", "quarters", "left-stack", "custom"]
+    property var layoutNames: ["Full screen", "Two columns", "Three columns", "Wide centre", "Four equal quarters (2 × 2)", "Left half + two right quarters", "Custom"]
     function quote(text) { return "'" + text.replace(/'/g, "'\\''") + "'" }
     function run(args) { executable.connectSource('"$HOME/.local/bin/kdescreenconf" ' + args) }
     function refresh() { run("status") }
@@ -51,10 +51,19 @@ PlasmoidItem {
             Kirigami.Heading { text: "KDEScreenConf"; level: 1; Layout.fillWidth: true }
             QQC2.Switch { text: "Enabled"; checked: root.snapshot.automatic === true; onClicked: root.run(checked ? "resume" : "pause") }
         }
-        Kirigami.Heading { level: 3; text: root.snapshot.profile ? root.snapshot.profile.name : "Detecting screens…" }
+        Kirigami.Heading { level: 3; text: root.snapshot.profile ? root.snapshot.profile.name + (root.snapshot.desktop_scoped ? " · " + root.snapshot.desktop_name : "") : "Detecting screens…" }
         QQC2.Label { text: root.failure; visible: text.length > 0; wrapMode: Text.Wrap; Layout.fillWidth: true }
         QQC2.CheckBox { visible:!root.editing; text:"Show zones while dragging windows";checked:root.snapshot.drag_overlay===true;onClicked:root.run(checked?"overlay-on":"overlay-off") }
         QQC2.CheckBox {visible:!root.editing;text:"Placement helper at the top of each screen";checked:root.snapshot.placement_helper===true;onClicked:root.run(checked?"helper-on":"helper-off")}
+        RowLayout {
+            QQC2.Label {text:"Gap between zones (pixels)"}
+            QQC2.SpinBox {from:0;to:100;editable:true;value:root.snapshot.gap===undefined?2:root.snapshot.gap;onValueModified:root.run("gap "+value)}
+        }
+        QQC2.Label {
+            visible:root.snapshot.modifier_ready===false
+            text:"Ctrl+Meta detection is unavailable in this session. Use Ctrl+Meta+D during a drag instead."
+            wrapMode:Text.Wrap;Layout.fillWidth:true
+        }
         LayoutEditor {
             id: layoutEditor
             Component.onCompleted: root.editorItem = this
@@ -89,7 +98,7 @@ PlasmoidItem {
                             onActivated: {
                                 if(root.layoutIds[currentIndex]==="custom" && !root.snapshot.profile.custom[monitorDelegate.modelData.identity]) {
                                     layoutEditor.load(monitorDelegate.modelData.name,root.snapshot.profile_key,root.snapshot.zones[monitorDelegate.modelData.name],monitorDelegate.modelData.width/monitorDelegate.modelData.height);root.editing=true;root.run("identify "+root.quote(monitorDelegate.modelData.name));
-                                } else root.run("set " + root.quote(monitorDelegate.modelData.name) + " " + root.quote(root.layoutIds[currentIndex]));
+                                } else root.run("set " + root.quote(monitorDelegate.modelData.name) + " " + root.quote(root.layoutIds[currentIndex]) + " " + root.quote(root.snapshot.profile_key));
                             }
                         }
                         QQC2.Button {
@@ -100,6 +109,6 @@ PlasmoidItem {
                 }
             }
         }
-        QQC2.Label { text: "Layouts save automatically for this monitor combination.\nPlace a window: Ctrl+Meta+1…9\nRestore its previous size: Ctrl+Meta+0\nSkip snapping during a drag: Ctrl+Meta+D"; wrapMode: Text.Wrap; Layout.fillWidth: true }
+        QQC2.Label { text: "Layouts save automatically. With one screen, each virtual desktop has its own layout and app assignments.\nPlace a window: Ctrl+Meta+1…9\nRestore its previous size: Ctrl+Meta+0\nMove freely: hold Ctrl+Meta while dragging\nApplications return to their saved zones when opened."; wrapMode: Text.Wrap; Layout.fillWidth: true }
     }
 }

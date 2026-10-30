@@ -36,19 +36,29 @@ The installer copies legacy `kadr/profiles.json` into `kdescreenconf/profiles.js
 
 The widget detects Mobile (laptop), Wide desk (laptop + one external), Dual desk (laptop + two external), and Workstation (three 4K + two other external screens). Other combinations receive a separate Custom setup profile. Each exact set of enabled monitor identities gets its own persistent profile, even when two sets share the same friendly name.
 
-Choose a preset for each monitor: full, halves, thirds, wide centre, or quarters. Changes save immediately to `~/.config/kdescreenconf/profiles.json`. All new monitors initially use halves. Reconnecting a known set selects its saved layouts after three consistent observations (roughly 4–6 seconds). Layout selection persists across logins and restarts.
+Choose a preset for each monitor: full, halves, thirds, wide centre, four equal quarters, or a left half with two stacked right quarters. Changes save immediately to `~/.config/kdescreenconf/profiles.json`. All new monitors initially use halves. Reconnecting a known set selects its saved layouts after three consistent observations (roughly 4–6 seconds). Layout selection persists across logins and restarts.
 
 - Ctrl+Meta+1…9: place the active window in a numbered zone on its current monitor.
 - Ctrl+Meta+0: restore its previous geometry, clamped to the current monitor.
 - Enabled switch: pause/resume KDEScreenConf placement.
 
-KWin applies normalized zones in logical coordinates within the usable screen area, respecting panels and display scaling. Each monitor has a small placement strip at the top of its usable area. Drag a window toward the strip to expand a thumbnail of that monitor’s layout, then release on a numbered thumbnail to place the window. The helper also works when full-screen drag overlays are disabled. Its visibility can be toggled in the widget.
+KWin applies normalized zones in logical coordinates within the usable screen area, respecting panels and display scaling. The placement helper appears only while dragging a window; no persistent screen label is shown. Drag toward the top centre of a monitor to expand a thumbnail of its layout, then release on a numbered thumbnail to place the window. The helper also works when full-screen drag overlays are disabled. Its visibility can be toggled in the widget.
 
-Drag a window to show its monitor’s zones, then release over a zone to snap. Ctrl+Meta+D skips snapping for the current drag. The widget can disable drag overlays independently of keyboard placement. Escape-cancelled moves are ignored when KWin restores the starting geometry.
+Drag a window to show its monitor’s zones, then release over a zone to snap. Hold Ctrl+Meta during a drag to bypass snapping for that entire drag, without changing its saved application assignment. Ctrl+Meta+D remains an explicit fallback. Automatic modifier detection requires a KDE Wayland compositor exposing keystate protocol version 5; the widget reports when unavailable. The widget can disable drag overlays independently of keyboard placement. Escape-cancelled moves are ignored when KWin restores the starting geometry.
 
-Choose **Edit zones…** under a monitor to add, move, resize, or delete 1–9 rectangular zones. Opening the editor identifies the physical screen for about five seconds with a green border, connector name, and resolution. Press **Identify screen** to show it again. Percentage fields provide precise coordinates. Zones must be at least 5% wide and high and stay inside the screen. Zones cannot overlap: dragging, resizing, and percentage edits reject collisions, and the backend validates every saved layout. **Add zone** splits the selected zone without overlap; touching edges are allowed. Older invalid custom layouts are retained on disk but replaced with a safe two-column layout for placement until you edit and save them. **Save layout** persists and selects the custom layout for that monitor/profile; **Cancel** discards edits. Switching to a preset retains your custom layout. Saving is rejected if the monitor combination changed while editing. Existing version-1 profiles migrate without losing preset selections.
+Choose **Edit zones…** under a monitor to add, move, resize, or delete 1–9 rectangular zones. Opening the editor identifies the physical screen for about five seconds with a green border, connector name, and resolution. Press **Identify screen** to show it again. Percentage fields provide precise coordinates. Zones must be at least 5% wide and high and stay inside the screen. Zones cannot overlap: dragging, resizing, and percentage edits reject collisions, and the backend validates every saved layout. **Add zone** fills the largest available empty rectangle without changing existing zones; if none meets the minimum size, shrink or delete a zone first; touching edges are allowed. Older invalid custom layouts are retained on disk but replaced with a safe two-column layout for placement until you edit and save them. **Save layout** persists and selects the custom layout for that monitor/profile; **Cancel** discards edits. Switching to a preset retains your custom layout. Saving is rejected if the monitor combination changed while editing. Existing version-1 profiles migrate without losing preset selections.
 
-KDEScreenConf does not replace native Meta+T tiles or restore application windows across logins. It does not change monitor resolutions, positions, or power state.
+The global **Gap between zones** setting defaults to **2 logical pixels** and applies to every monitor/profile. It is the total gap between adjacent zones (not an inset on each side); display scaling converts logical pixels to physical pixels.
+
+Snapping an application with the helper, drag overlay, or keyboard saves its monitor and zone in the current profile. When that application opens again, or you switch to another monitor profile, its windows return to that profile’s saved zone. Matching uses the desktop application ID (falling back to window class), window role, and window title. This lets Tasks, Mail and Calendar from the same application keep separate positions. Titles are saved locally in your profile; changing a title can require teaching that window again. Windows with identical application, role and title share an assignment. Removed zones are skipped. Free moves are left alone until the next profile switch or login. KDEScreenConf does not launch applications itself: KDE session restoration or your autostart settings open them. Place each application once to teach its assignment.
+
+KDEScreenConf does not replace native Meta+T tiles. Keep KDE Display Configuration/KScreen enabled: it still controls resolution, scaling, output positions and enabled displays; KDEScreenConf uses `kscreen-doctor` for detection.
+
+## Single-screen virtual desktops
+
+With exactly one enabled monitor, each KDE virtual desktop has independent layouts and application assignments. Switch desktops and choose a preset or edit zones in the widget; its heading shows the active desktop name. Snap applications once on each desktop to teach their placements. New desktop profiles inherit the original single-monitor layout, with empty assignments. The original profile remains intact. Profiles use stable desktop IDs, so renaming or reordering desktops preserves settings. Deleted desktops retain their saved profiles but newly created desktop IDs start fresh.
+
+Only windows belonging to the current desktop are restored. Windows on all desktops follow the active desktop's assignment. With two or more enabled monitors, layouts and assignments remain shared across virtual desktops, as before. The global gap remains shared everywhere. Editor saves and queued assignments are rejected if their desktop profile is no longer active.
 
 ## Monitor identity
 
@@ -59,6 +69,7 @@ EDID bytes from `/sys/class/drm` identify hardware when available. Connector nam
 ```
 kdescreenconf status
 kdescreenconf detect
+kdescreenconf gap 2
 kdescreenconf identify HDMI-A-1
 kdescreenconf set HDMI-A-1 quarters
 kdescreenconf pause
@@ -71,6 +82,7 @@ systemctl --user status kdescreenconf
 ```
 cargo test --offline
 node tests/kwin.test.cjs
+node tests/assignments.test.cjs
 QT_QPA_PLATFORM=offscreen /usr/lib/qt6/bin/qmltestrunner -input tests
 cargo build --release --offline
 /usr/lib/qt6/bin/qmllint widget/contents/ui/main.qml

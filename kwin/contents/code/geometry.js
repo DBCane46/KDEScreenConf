@@ -1,7 +1,11 @@
 // Pure geometry shared by the overlay and keyboard placement.
 function rect(zone, area, gap) {
-    return {x:Math.round(area.x+zone[0]*area.width+gap),y:Math.round(area.y+zone[1]*area.height+gap),
-        width:Math.max(1,Math.round(zone[2]*area.width-2*gap)),height:Math.max(1,Math.round(zone[3]*area.height-2*gap))};
+    // Round shared boundaries first; split the total gap across neighbours.
+    var left=Math.round(area.x+zone[0]*area.width)+Math.floor(gap/2);
+    var top=Math.round(area.y+zone[1]*area.height)+Math.floor(gap/2);
+    var right=Math.round(area.x+(zone[0]+zone[2])*area.width)-Math.ceil(gap/2);
+    var bottom=Math.round(area.y+(zone[1]+zone[3])*area.height)-Math.ceil(gap/2);
+    return {x:left,y:top,width:Math.max(1,right-left),height:Math.max(1,bottom-top)};
 }
 function hit(zones, x, y) {
     // Last drawn zone wins when custom zones overlap.

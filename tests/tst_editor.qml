@@ -8,7 +8,17 @@ Item {
         name:"LayoutEditor";when:windowShown
         function init(){editor.load("Test screen","profile",[[0,0,0.5,1],[0.5,0,0.5,1]],16/9)}
         function test_preview(){wait(50);grabImage(editor).save("/tmp/kdescreenconf-editor-preview.png")}
-        function test_add_delete(){editor.add();compare(editor.zones.length,3);editor.remove();compare(editor.zones.length,2)}
+        function test_add_delete(){
+            editor.add();compare(editor.zones.length,2);verify(editor.error.length>0);
+            editor.remove();compare(editor.zones.length,1);editor.add();compare(editor.zones.length,2);verify(editor.valid(editor.zones));
+        }
+        function test_free_space(){
+            editor.load("Test","profile",[[0,0,.25,1],[.75,0,.25,1]],16/9);
+            const before=JSON.stringify(editor.zones);editor.add();
+            compare(JSON.stringify(editor.zones.slice(0,2)),before);
+            compare(JSON.stringify(editor.zones[2]),JSON.stringify([.25,0,.5,1]));verify(editor.valid(editor.zones));
+            editor.load("Test","profile",[[0,0,.7,.7]],16/9);editor.add();verify(editor.valid(editor.zones));
+        }
         function test_no_overlap(){
             const before=JSON.stringify(editor.zones);
             verify(!editor.change(0,[0.1,0,0.5,1]));compare(JSON.stringify(editor.zones),before);

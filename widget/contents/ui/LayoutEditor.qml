@@ -37,16 +37,21 @@ ColumnLayout {
     }
     function add() {
         if(zones.length>=9)return;
-        const index=selected>=0?selected:0,z=zones[index];
-        if(!z)return;
-        const horizontal=z[2]>=0.1 && (z[2]*aspect>=z[3] || z[3]<0.1);
-        if(!horizontal && z[3]<0.1){error="This zone is too small to split.";return}
-        const a=z.slice(),b=z.slice();
-        if(horizontal){a[2]=z[2]/2;b[0]+=a[2];b[2]=a[2]}
-        else {a[3]=z[3]/2;b[1]+=a[3];b[3]=a[3]}
-        const copy=zones.slice();copy[index]=a;copy.push(b);
-        if(valid(copy)){zones=copy;selected=copy.length-1;error=""}
+        const xs=[0,1],ys=[0,1];
+        for(const z of zones){xs.push(z[0],z[0]+z[2]);ys.push(z[1],z[1]+z[3])}
+        xs.sort(function(a,b){return a-b});ys.sort(function(a,b){return a-b});
+        let best=null,area=0;
+        for(let l=0;l<xs.length;l++)for(let r=l+1;r<xs.length;r++)
+            for(let t=0;t<ys.length;t++)for(let b=t+1;b<ys.length;b++){
+                const z=[xs[l],ys[t],xs[r]-xs[l],ys[b]-ys[t]];
+                if(z[2]<0.05||z[3]<0.05||z[2]*z[3]<=area)continue;
+                if(zones.some(function(existing){return overlap(z,existing)}))continue;
+                best=z;area=z[2]*z[3];
+            }
+        if(!best){error="No free space. Shrink or delete a zone first (minimum 5% width and height).";return}
+        zones=zones.concat([best]);selected=zones.length-1;error="";
     }
+
     function remove() { if(zones.length<=1||selected<0)return;const copy=zones.slice();copy.splice(selected,1);zones=copy;selected=Math.min(selected,zones.length-1) }
     function setPercent(field, value) {
         if(selected<0||selected>=zones.length)return;
@@ -59,7 +64,7 @@ ColumnLayout {
         Kirigami.Heading {level:3;text:"Edit zones · "+editor.screenName;Layout.fillWidth:true}
         C.Button {text:"Identify screen";onClicked:editor.identifyRequested(editor.screenName)}
     }
-    C.Label {text:"Drag zones to move them. Drag the lower-right corner to resize.\nZones cannot overlap. Add zone splits the selected zone.";wrapMode:Text.Wrap;Layout.fillWidth:true}
+    C.Label {text:"Drag zones to move them. Drag the lower-right corner to resize.\nZones cannot overlap. Add zone fills available free space.";wrapMode:Text.Wrap;Layout.fillWidth:true}
     Rectangle {
         id: canvas
         objectName: "zoneCanvas"
