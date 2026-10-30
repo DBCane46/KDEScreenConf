@@ -1,0 +1,9 @@
+/target/
+/dist/
+/core
+__pycache__/
+*.pyc
+/bin/
+/.agents/
+/.aws/
+/.codex/

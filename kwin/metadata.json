@@ -1,0 +1,19 @@
+{
+  "KPlugin": {
+    "Id": "kdescreenconf",
+    "Name": "KDEScreenConf window zones",
+    "Description": "Window placement for KDEScreenConf monitor profiles",
+    "Version": "0.3.0",
+    "License": "MIT",
+    "Authors": [
+      {
+        "Name": "KDEScreenConf contributors"
+      }
+    ],
+    "Website": "https://github.com/DBCane46/KDEScreenConf"
+  },
+  "KPackageStructure": "KWin/Script",
+  "X-Plasma-API": "declarativescript",
+  "X-Plasma-MainScript": "ui/main.qml",
+  "X-KDE-PluginInfo-EnabledByDefault": false
+}

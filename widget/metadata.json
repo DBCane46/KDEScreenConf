@@ -1,0 +1,19 @@
+{
+  "KPlugin": {
+    "Id": "org.kde.kdescreenconf",
+    "Name": "KDEScreenConf",
+    "Description": "Automatic monitor profiles and window zones",
+    "Icon": "kdescreenconf",
+    "Version": "0.3.0",
+    "License": "MIT",
+    "Authors": [
+      {
+        "Name": "KDEScreenConf contributors"
+      }
+    ],
+    "Category": "Windows and Tasks",
+    "Website": "https://github.com/DBCane46/KDEScreenConf"
+  },
+  "KPackageStructure": "Plasma/Applet",
+  "X-Plasma-API-Minimum-Version": "6.0"
+}

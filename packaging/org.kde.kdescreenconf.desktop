@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=KDEScreenConf
+Comment=Configure monitor profiles and window zones
+Exec=plasmawindowed org.kde.kdescreenconf
+Icon=kdescreenconf
+Terminal=false
+Categories=Qt;KDE;Settings;DesktopSettings;
+Keywords=screen;monitor;tiling;zones;layout;

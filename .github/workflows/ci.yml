@@ -1,0 +1,20 @@
+name: Checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust toolchain
+        run: |
+          rustup toolchain install 1.93.1 --profile minimal --component rustfmt
+          rustup override set 1.93.1
+      - run: cargo fmt --check
+      - run: cargo test --locked
+      - run: node tests/kwin.test.cjs
+      - run: python3 -m unittest discover -s tests -p 'test_*.py'
+      - run: bash -n scripts/install.sh

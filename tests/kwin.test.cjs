@@ -1,0 +1,11 @@
+const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/strict');
+const g={};vm.createContext(g);vm.runInContext(fs.readFileSync('kwin/contents/code/geometry.js','utf8'),g);
+const r=g.rect([.5,0,.5,1],{x:-1920,y:100,width:1920,height:1080},8);
+assert.equal(r.x,-952);assert.equal(r.width,944);assert.equal(r.y,108);
+assert.equal(g.hit([[0,0,1,1],[.25,.25,.5,.5]],.5,.5),1);
+assert.equal(g.hit([[0,0,.25,1]],.5,.5),-1);
+assert.equal(g.hit([[0,0,.5,1],[.5,0,.5,1]],.5,.5),1);
+assert.equal(g.same({x:1,y:2,width:3,height:4},{x:1,y:2,width:3,height:4}),true);
+const c=g.clamp({x:-2000,y:50,width:3000,height:2000},{x:0,y:0,width:1920,height:1080});
+assert.equal(c.x,0);assert.equal(c.y,0);assert.equal(c.width,1920);
+console.log('Geometry: negative origins, gaps, overlap priority, boundaries, cancellation, restore PASS');
