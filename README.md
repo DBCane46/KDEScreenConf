@@ -97,3 +97,9 @@ To disable: turn off **KDEScreenConf window zones** in System Settings → Windo
 ## License
 
 MIT. This is an independent project and is not an official KDE application.
+
+## KDE Store package
+
+The `.plasmoid` contains the widget only. **Install the companion backend and KWin integration using the installation instructions above.** The widget shows a friendly installation link if the backend is missing and reconnects automatically once it is running.
+
+Build it with `python3 scripts/package-widget.py`. For listing text, screenshots and the submission checklist, see [KDE Store publishing](docs/store/PUBLISHING.md). The Store download does not execute an installer or fetch binaries.

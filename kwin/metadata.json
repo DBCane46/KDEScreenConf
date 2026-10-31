@@ -3,7 +3,7 @@
     "Id": "kdescreenconf",
     "Name": "KDEScreenConf window zones",
     "Description": "Window placement for KDEScreenConf monitor profiles",
-    "Version": "0.5.0",
+    "Version": "0.5.1",
     "License": "MIT",
     "Authors": [
       {

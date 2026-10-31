@@ -19,3 +19,11 @@ jobs:
       - run: node tests/assignments.test.cjs
       - run: python3 -m unittest discover -s tests -p 'test_*.py'
       - run: bash -n scripts/install.sh
+      - name: Build KDE Store widget
+        run: python3 scripts/package-widget.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KDE-Store-widget
+          path: |
+            dist/*.plasmoid
+            dist/*.plasmoid.sha256

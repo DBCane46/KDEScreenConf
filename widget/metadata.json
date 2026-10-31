@@ -2,9 +2,9 @@
   "KPlugin": {
     "Id": "org.kde.kdescreenconf",
     "Name": "KDEScreenConf",
-    "Description": "Automatic monitor profiles and window zones",
-    "Icon": "kdescreenconf",
-    "Version": "0.5.0",
+    "Description": "Opt-in window zones and monitor profiles; companion backend required",
+    "Icon": "preferences-desktop-display",
+    "Version": "0.5.1",
     "License": "MIT",
     "Authors": [
       {

@@ -8,7 +8,7 @@ name="KDEScreenConf-${version}-linux-${arch}"
 stage=$(mktemp -d)
 trap 'rm -rf "$stage"' EXIT
 mkdir -p "$stage/$name/bin" dist
-cp -R Cargo.toml Cargo.lock README.md LICENSE design src widget kwin scripts packaging tests "$stage/$name/"
+cp -R Cargo.toml Cargo.lock README.md LICENSE docs design src widget kwin scripts packaging tests "$stage/$name/"
 find "$stage" -type d -name __pycache__ -prune -exec rm -rf {} +
 install -m755 target/release/kdescreenconf "$stage/$name/bin/kdescreenconf"
 tar -C "$stage" -czf "dist/$name.tar.gz" "$name"

@@ -7,6 +7,7 @@ import org.kde.plasma.plasma5support as P5Support
 import org.kde.kirigami as Kirigami
 PlasmoidItem {
     id: root
+    property string connectionState: "connecting"
     property var snapshot: ({})
     property bool editing: false
     property string pendingSave: ""
@@ -24,12 +25,13 @@ PlasmoidItem {
         onNewData: function(source, data) {
             disconnectSource(source)
             if (data["exit code"] !== 0) {
+                if(source.endsWith(" status")){root.connectionState=data["exit code"]===127?"missing":"unavailable";root.snapshot=({});root.editing=false;}
                 root.failure = String(data.stderr || "KDEScreenConf backend is unavailable");
                 if(source===root.pendingSave){root.pendingSave="";if(root.editorItem){root.editorItem.saving=false;root.editorItem.error=root.failure}}
                 return
             }
-            try { const next = JSON.parse(data.stdout); if (JSON.stringify(next) !== JSON.stringify(root.snapshot)) root.snapshot = next; root.failure = next.error || next.layout_warning || "" }
-            catch (e) { root.failure = "Could not read KDEScreenConf status" }
+            try { const next = JSON.parse(data.stdout); if(typeof next.automatic!=="boolean" || !Array.isArray(next.monitors))throw new Error("Invalid status"); root.connectionState="ready"; if (JSON.stringify(next) !== JSON.stringify(root.snapshot)) root.snapshot = next; root.failure = next.error || next.layout_warning || "" }
+            catch (e) { root.connectionState="unavailable";root.snapshot=({});root.editing=false;root.failure = "Could not read KDEScreenConf status" }
             if(source===root.pendingSave){root.pendingSave="";if(root.editorItem)root.editorItem.saving=false;root.editing=false}
         }
     }
@@ -40,7 +42,7 @@ PlasmoidItem {
         implicitWidth: Kirigami.Units.iconSizes.medium
         implicitHeight: implicitWidth
         onClicked: root.expanded = !root.expanded
-        Kirigami.Icon { anchors.fill: parent; source: "kdescreenconf" }
+        Kirigami.Icon { anchors.fill: parent; source: Qt.resolvedUrl("../images/kdescreenconf.svg") }
     }
     fullRepresentation: ColumnLayout {
         Layout.minimumWidth: Kirigami.Units.gridUnit * (root.editing ? 32 : 22)
@@ -49,8 +51,15 @@ PlasmoidItem {
         spacing: Kirigami.Units.smallSpacing
         RowLayout {
             Kirigami.Heading { text: "KDEScreenConf"; level: 1; Layout.fillWidth: true }
-            QQC2.Switch { text: "Enabled"; checked: root.snapshot.automatic === true; onClicked: root.run(checked ? "resume" : "pause") }
+            QQC2.Switch { visible:root.connectionState==="ready"; text: "Enabled"; checked: root.snapshot.automatic === true; onClicked: root.run(checked ? "resume" : "pause") }
         }
+        BackendNotice {
+            visible:root.connectionState!=="ready";Layout.fillWidth:true
+            connectionState:root.connectionState
+            onRetryRequested:root.refresh()
+        }
+        ColumnLayout {
+            visible:root.connectionState==="ready";Layout.fillWidth:true;Layout.fillHeight:true
         Kirigami.Heading { level: 3; text: root.snapshot.profile ? root.snapshot.profile.name + (root.snapshot.desktop_scoped ? " · " + root.snapshot.desktop_name : "") : "Detecting screens…" }
         QQC2.Label { text: root.failure; visible: text.length > 0; wrapMode: Text.Wrap; Layout.fillWidth: true }
         QQC2.CheckBox { visible:!root.editing; text:"Show zones during Ctrl+Meta drag";checked:root.snapshot.drag_overlay===true;onClicked:root.run(checked?"overlay-on":"overlay-off") }
@@ -110,5 +119,6 @@ PlasmoidItem {
             }
         }
         QQC2.Label { text: "Layouts save automatically. With one screen, each virtual desktop has its own layout and app assignments.\nPlace a window: Ctrl+Meta+1…9\nRestore its previous size: Ctrl+Meta+0\nHold Ctrl+Meta while dragging to show zones and snap.\nNormal moves and newly opened windows are left alone.\nApply saved application positions: Ctrl+Meta+R"; wrapMode: Text.Wrap; Layout.fillWidth: true }
+        }
     }
 }
