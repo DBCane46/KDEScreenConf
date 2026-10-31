@@ -53,15 +53,15 @@ PlasmoidItem {
         }
         Kirigami.Heading { level: 3; text: root.snapshot.profile ? root.snapshot.profile.name + (root.snapshot.desktop_scoped ? " · " + root.snapshot.desktop_name : "") : "Detecting screens…" }
         QQC2.Label { text: root.failure; visible: text.length > 0; wrapMode: Text.Wrap; Layout.fillWidth: true }
-        QQC2.CheckBox { visible:!root.editing; text:"Show zones while dragging windows";checked:root.snapshot.drag_overlay===true;onClicked:root.run(checked?"overlay-on":"overlay-off") }
-        QQC2.CheckBox {visible:!root.editing;text:"Placement helper at the top of each screen";checked:root.snapshot.placement_helper===true;onClicked:root.run(checked?"helper-on":"helper-off")}
+        QQC2.CheckBox { visible:!root.editing; text:"Show zones during Ctrl+Meta drag";checked:root.snapshot.drag_overlay===true;onClicked:root.run(checked?"overlay-on":"overlay-off") }
+        QQC2.CheckBox {visible:!root.editing;text:"Placement helper during Ctrl+Meta drag";checked:root.snapshot.placement_helper===true;onClicked:root.run(checked?"helper-on":"helper-off")}
         RowLayout {
             QQC2.Label {text:"Gap between zones (pixels)"}
             QQC2.SpinBox {from:0;to:100;editable:true;value:root.snapshot.gap===undefined?2:root.snapshot.gap;onValueModified:root.run("gap "+value)}
         }
         QQC2.Label {
             visible:root.snapshot.modifier_ready===false
-            text:"Ctrl+Meta detection is unavailable in this session. Use Ctrl+Meta+D during a drag instead."
+            text:"Ctrl+Meta detection is unavailable in this session. Use Ctrl+Meta+1…9 to place windows instead."
             wrapMode:Text.Wrap;Layout.fillWidth:true
         }
         LayoutEditor {
@@ -109,6 +109,6 @@ PlasmoidItem {
                 }
             }
         }
-        QQC2.Label { text: "Layouts save automatically. With one screen, each virtual desktop has its own layout and app assignments.\nPlace a window: Ctrl+Meta+1…9\nRestore its previous size: Ctrl+Meta+0\nMove freely: hold Ctrl+Meta while dragging\nApplications return to their saved zones when opened."; wrapMode: Text.Wrap; Layout.fillWidth: true }
+        QQC2.Label { text: "Layouts save automatically. With one screen, each virtual desktop has its own layout and app assignments.\nPlace a window: Ctrl+Meta+1…9\nRestore its previous size: Ctrl+Meta+0\nHold Ctrl+Meta while dragging to show zones and snap.\nNormal moves and newly opened windows are left alone.\nApply saved application positions: Ctrl+Meta+R"; wrapMode: Text.Wrap; Layout.fillWidth: true }
     }
 }

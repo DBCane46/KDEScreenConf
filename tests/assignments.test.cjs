@@ -37,3 +37,24 @@ assert.equal(w.frameGeometry.x,-1919);assert.equal(second.frameGeometry.x,77,'ba
 context.state.desktop_id='desktop-b';assert.equal(context.healthy(),false,'stale desktop reply blocks placement');
 context.Workspace.currentDesktop={id:'desktop-b'};context.restoreApplications({});assert.equal(second.frameGeometry.x,-959);
 console.log('Virtual desktops: background windows untouched and stale desktop blocked PASS');
+// Default operation must never invoke saved placement from polling/open events.
+assert.equal((qml.match(/root\.restoreApplications\(/g)||[]).length,1);
+assert.match(qml,/onActivated:root\.restoreApplications\(\{\}\)/);
+for(const name of ['updateOverlay','beginMove','finishMove']) {
+ const start=qml.indexOf('function '+name+'('),brace=qml.indexOf('{',start);let end=brace+1,depth=1;
+ for(;depth;end++){if(qml[end]==='{')depth++;if(qml[end]==='}')depth--;}
+ vm.runInContext(qml.slice(start,end),context);
+}
+for(const name of ['same','inside','hit','helperHit'])context.Geometry[name]=context[name];
+context.activeZones=[];context.highlighted=-1;context.overlay={visible:false};context.refresh=()=>{};context.dropCheck={call(){}};
+context.state.desktop_scoped=false;context.state.modifier_ready=true;context.state.free_move=false;
+context.state.drag_overlay=true;context.state.placement_helper=false;
+context.Workspace.cursorPos={x:-1500,y:400};output.geometry={x:-1920,y:0,width:1920,height:1080};
+w.move=true;context.beginMove(w);assert.equal(context.overlay.visible,false);
+w.frameGeometry.x+=20;context.finishMove(w);assert.equal(context.pendingDrop,null,'ordinary drag never snaps');
+context.beginMove(w);context.state.free_move=true;context.updateOverlay();assert.equal(context.overlay.visible,true,'chord pressed mid-drag enables preview');
+context.state.free_move=false;context.updateOverlay();assert.equal(context.overlay.visible,false,'releasing chord hides preview');
+w.frameGeometry.x+=20;context.finishMove(w);assert.equal(context.pendingDrop,null,'released chord cancels snap');
+context.state.free_move=true;context.beginMove(w);w.frameGeometry.x+=20;context.finishMove(w);assert.ok(context.pendingDrop,'modified drop requests placement');
+context.pendingDrop=null;context.state.modifier_ready=false;context.beginMove(w);assert.equal(context.overlay.visible,false,'missing modifier listener fails closed');
+console.log('Opt-in dragging: normal drag, chord activation/release, modified drop, unavailable listener PASS');

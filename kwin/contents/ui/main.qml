@@ -118,8 +118,7 @@ Item {
         w.setMaximize(false,false);w.frameGeometry=Qt.rect(r.x,r.y,r.width,r.height);delete originals[key];
     }
     function updateOverlay() {
-        if(movingWindow && (state.free_move || state.modifier_at>=dragStartedAt))suppressed=true;
-        if (!movingWindow || suppressed || !healthy() || (!state.drag_overlay && !state.placement_helper) || state.profile_key!==dragProfile) { overlay.visible=false;highlighted=-1;return }
+        if (!movingWindow || suppressed || !state.modifier_ready || !state.free_move || !healthy() || (!state.drag_overlay && !state.placement_helper) || state.profile_key!==dragProfile) { overlay.visible=false;highlighted=-1;return }
         const cursor=Workspace.cursorPos;
         const screens=Workspace.screens;
         let found=null;
@@ -136,7 +135,7 @@ Item {
     function beginMove(w) {
         if (!w.move || !w.resizeable || w.fullScreen) return;
         root.movingWindow=w;root.startGeometry=Geometry.copy(w.frameGeometry);
-        root.dragProfile=root.state.profile_key || "";root.suppressed=!!root.state.free_move;
+        root.dragProfile=root.state.profile_key || "";root.suppressed=false;
         root.dragStartedAt=Date.now();root.pendingDrop=null;
         root.restored[String(w.internalId)]=root.dragProfile;delete root.managed[String(w.internalId)];
         root.refresh();root.updateOverlay();
@@ -161,7 +160,7 @@ Item {
             if(!drop || !root.trackedWindows.includes(drop.window))return;
             try{
                 const now=JSON.parse(reply[0]);
-                if(now.automatic && !now.error && now.profile_key===drop.profile && !now.free_move && now.modifier_at<drop.epoch && !drop.window.move)
+                if(now.automatic && !now.error && now.profile_key===drop.profile && !drop.window.move)
                     root.place(drop.window,drop.zone,drop.target,drop.original);
             }catch(e){console.warn("KDEScreenConf drop check failed",e)}
         }
@@ -189,7 +188,7 @@ Item {
         arguments:[String(Workspace.currentDesktop.id),String(Workspace.currentDesktop.name)]
         onFinished: function(reply) {
             root.busy=false;
-            try { const previous=root.state;root.state=JSON.parse(reply[0]);root.lastReply=Date.now();root.restoreApplications(previous) } catch(e) {root.state=({})}
+            try { root.state=JSON.parse(reply[0]);root.lastReply=Date.now() } catch(e) {root.state=({})}
             root.updateOverlay();root.updateIdentification();root.updateHelperScreens();
         }
         onFailed: {root.busy=false;root.state=({});root.updateOverlay();root.updateIdentification()}
@@ -217,6 +216,7 @@ Item {
             ShortcutHandler {name:"KDEScreenConfZone"+(shortcutItem.index+1);text:"KDEScreenConf: place in zone "+(shortcutItem.index+1);sequence:"Meta+Ctrl+"+(shortcutItem.index+1);onActivated:root.keyboardPlace(shortcutItem.index)}
         }
     }
+    ShortcutHandler {name:"KDEScreenConfRestoreAssignments";text:"KDEScreenConf: apply saved application assignments";sequence:"Meta+Ctrl+R";onActivated:root.restoreApplications({})}
     ShortcutHandler {name:"KDEScreenConfRestore";text:"KDEScreenConf: restore window geometry";sequence:"Meta+Ctrl+0";onActivated:root.restore()}
     ShortcutHandler {name:"KDEScreenConfSkipDrag";text:"KDEScreenConf: skip snapping for this drag";sequence:"Meta+Ctrl+D";onActivated:{root.suppressed=true;root.updateOverlay()}}
     PlasmaCore.Dialog {
